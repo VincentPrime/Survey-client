@@ -84,9 +84,8 @@ export default function SignupPage() {
             {/* Role Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                I am a *
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols gap-4">
                 <label className="relative flex items-center justify-center p-4 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
                   <input
                     type="radio"
@@ -111,7 +110,7 @@ export default function SignupPage() {
                     </div>
                   )}
                 </label>
-
+{/* 
                 <label className="relative flex items-center justify-center p-4 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
                   <input
                     type="radio"
@@ -134,7 +133,7 @@ export default function SignupPage() {
                       </svg>
                     </div>
                   )}
-                </label>
+                </label> */}
               </div>
             </div>
 
