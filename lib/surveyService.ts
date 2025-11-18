@@ -4,15 +4,15 @@ import { Survey, SurveyList, Question, Response, ResponseCreate, AnalyticsData }
 
 export const surveyService = {
   // Get all surveys (filtered by role on backend)
-    async getSurveys(): Promise<SurveyList[]> {
+  async getSurveys(): Promise<SurveyList[]> {
     try {
-        const response = await api.get('/api/surveys/');
-        const data = response.data;
-        return Array.isArray(data) ? data : data.results || data.surveys || [];
+      const response = await api.get('/api/surveys/');
+      const data = response.data;
+      return Array.isArray(data) ? data : data.results || data.surveys || [];
     } catch (error) {
-        throw handleApiError(error);
+      throw handleApiError(error);
     }
-    },
+  },
 
   // Get survey details
   async getSurvey(id: number): Promise<Survey> {
@@ -34,10 +34,11 @@ export const surveyService = {
     }
   },
 
-  // Update survey
-  async updateSurvey(id: number, data: Partial<Survey>): Promise<Survey> {
+  // Update survey with questions
+  async updateSurvey(id: number, data: any): Promise<Survey> {
     try {
-      const response = await api.put<Survey>(`/api/surveys/${id}/`, data);
+      // Fix: Use the correct endpoint path
+      const response = await api.put(`/api/surveys/${id}/update_with_questions/`, data);
       return response.data;
     } catch (error) {
       throw handleApiError(error);
