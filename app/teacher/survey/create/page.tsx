@@ -1,22 +1,39 @@
 // app/(teacher)/surveys/create/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { surveyService, questionService } from '@/lib/surveyService';
 import { Question, QuestionType } from '@/types';
+
+interface StudentFilters {
+  sections: string[];
+  courses: string[];
+  year_levels: number[];
+}
 
 export default function CreateSurveyPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   
-  // Survey details - REMOVED targeting fields
+  // Student filters from backend
+  const [filters, setFilters] = useState<StudentFilters>({
+    sections: [],
+    courses: [],
+    year_levels: []
+  });
+  const [loadingFilters, setLoadingFilters] = useState(true);
+  
+  // Survey details with targeting
   const [surveyData, setSurveyData] = useState({
     title: '',
     description: '',
     status: 'draft' as 'draft' | 'active' | 'closed',
     due_date: '',
+    target_sections: [] as string[],
+    target_courses: [] as string[],
+    target_years: [] as number[],
   });
 
   // Questions
@@ -35,6 +52,59 @@ export default function CreateSurveyPage() {
     { value: 'short_answer', label: 'Short Answer' },
     { value: 'long_answer', label: 'Long Answer' },
   ];
+
+  // Fetch student filters on mount
+  useEffect(() => {
+    fetchStudentFilters();
+  }, []);
+
+  const fetchStudentFilters = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:8000/api/users/student_filters/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFilters(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch student filters:', error);
+    } finally {
+      setLoadingFilters(false);
+    }
+  };
+
+  // Toggle selection handlers
+  const toggleSection = (section: string) => {
+    setSurveyData(prev => ({
+      ...prev,
+      target_sections: prev.target_sections.includes(section)
+        ? prev.target_sections.filter(s => s !== section)
+        : [...prev.target_sections, section]
+    }));
+  };
+
+  const toggleCourse = (course: string) => {
+    setSurveyData(prev => ({
+      ...prev,
+      target_courses: prev.target_courses.includes(course)
+        ? prev.target_courses.filter(c => c !== course)
+        : [...prev.target_courses, course]
+    }));
+  };
+
+  const toggleYear = (year: number) => {
+    setSurveyData(prev => ({
+      ...prev,
+      target_years: prev.target_years.includes(year)
+        ? prev.target_years.filter(y => y !== year)
+        : [...prev.target_years, year]
+    }));
+  };
 
   const handleAddQuestion = () => {
     if (!currentQuestion.question_text) {
@@ -87,7 +157,7 @@ export default function CreateSurveyPage() {
 
     setLoading(true);
     try {
-      // Create survey (will automatically be available to all students when active)
+      // Create survey with targeting
       const survey = await surveyService.createSurvey(surveyData);
 
       // Create questions
@@ -98,7 +168,7 @@ export default function CreateSurveyPage() {
         } as Question);
       }
 
-      alert('Survey created successfully! It will be visible to all students once activated.');
+      alert('Survey created successfully!');
       router.push('/teacher/dashboard');
     } catch (error) {
       console.error('Failed to create survey:', error);
@@ -150,13 +220,6 @@ export default function CreateSurveyPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Survey Information</h2>
             
-            {/* Info Banner */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Once you set this survey to "Active", it will automatically be available to all registered students.
-              </p>
-            </div>
-            
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -194,9 +257,9 @@ export default function CreateSurveyPage() {
                     onChange={(e) => setSurveyData({ ...surveyData, status: e.target.value as any })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   >
-                    <option value="draft">Draft (Not visible to students)</option>
-                    <option value="active">Active (Visible to all students)</option>
-                    <option value="closed">Closed (No longer accepting responses)</option>
+                    <option value="draft">Draft</option>
+                    <option value="active">Active</option>
+                    <option value="closed">Closed</option>
                   </select>
                 </div>
 
@@ -212,6 +275,123 @@ export default function CreateSurveyPage() {
                   />
                 </div>
               </div>
+
+              {/* Target Audience Section */}
+              <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Target Audience</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Select which students should see this survey. Leave all unselected to show to all students.
+                </p>
+
+                {loadingFilters ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-sm text-gray-600">Loading student data...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Sections */}
+                    {filters.sections.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Sections ({surveyData.target_sections.length} selected)
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {filters.sections.map((section) => (
+                            <button
+                              key={section}
+                              type="button"
+                              onClick={() => toggleSection(section)}
+                              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                                surveyData.target_sections.includes(section)
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              Section {section}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Courses */}
+                    {filters.courses.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Courses ({surveyData.target_courses.length} selected)
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {filters.courses.map((course) => (
+                            <button
+                              key={course}
+                              type="button"
+                              onClick={() => toggleCourse(course)}
+                              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                                surveyData.target_courses.includes(course)
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              {course}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Year Levels */}
+                    {filters.year_levels.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Year Levels ({surveyData.target_years.length} selected)
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {filters.year_levels.map((year) => (
+                            <button
+                              key={year}
+                              type="button"
+                              onClick={() => toggleYear(year)}
+                              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                                surveyData.target_years.includes(year)
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              {year}
+                              {year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} Year
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    {(surveyData.target_sections.length > 0 || 
+                      surveyData.target_courses.length > 0 || 
+                      surveyData.target_years.length > 0) && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <strong>This survey will be visible to:</strong> Students in{' '}
+                          {surveyData.target_sections.length > 0 && `sections ${surveyData.target_sections.join(', ')}`}
+                          {surveyData.target_courses.length > 0 && ` taking ${surveyData.target_courses.join(', ')}`}
+                          {surveyData.target_years.length > 0 && ` in year ${surveyData.target_years.join(', ')}`}
+                        </p>
+                      </div>
+                    )}
+
+                    {surveyData.target_sections.length === 0 && 
+                     surveyData.target_courses.length === 0 && 
+                     surveyData.target_years.length === 0 && (
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800">
+                          <strong>This survey will be visible to all students</strong>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="mt-8 flex justify-end">
@@ -225,9 +405,12 @@ export default function CreateSurveyPage() {
           </div>
         )}
 
-        {/* Step 2: Add Questions */}
+        {/* Step 2: Add Questions - Keep your existing code */}
         {step === 2 && (
           <div className="space-y-6">
+            {/* ... Your existing Step 2 code ... */}
+            {/* I'm keeping it the same as you had it */}
+            
             {/* Added Questions List */}
             {questions.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
